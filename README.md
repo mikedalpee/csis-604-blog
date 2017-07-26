@@ -2,7 +2,9 @@
 
 This project uses the Google Cloud Endpoints Framework to simulate a very simple 
 blog entry backend.  It uses the HTTP GET, PUT, POST, and DELETE commands
-to manipulate the blog data.
+to manipulate the blog data. The data is persistently stored in the cloud 
+using a GCS bucket and object.  When the service is started, it retrieves
+the saved blog text. Each update causes the current blog text to be saved.
 
 
 ## Build with Maven
@@ -19,9 +21,9 @@ To generate the required configuration file `openapi.json`:
 
     mvn exec:java -DGetSwaggerDoc
 
-### Deploying the sample API to App Engine
+### Deploying the project to App Engine
 
-To deploy the sample API:
+To deploy the project:
 
 0. Invoke the `gcloud` command to deploy the API configuration file:
 
@@ -79,7 +81,7 @@ After executing both commands you will get a 200 response with the following dat
      curl \
          -H "Content-Type: application/json" \
          -X DELETE \
-         https://csis-604-blog.appspot.com/_ah/api/blog/v1/newBlog
+         https://csis-604-blog.appspot.com/_ah/api/blog/v1/deleteBlog
 
      curl \
          -H "Content-Type: application/json" \
