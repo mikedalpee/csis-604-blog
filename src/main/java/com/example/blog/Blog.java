@@ -1,4 +1,5 @@
 package com.example.blog;
+import com.google.api.client.util.Charsets;
 import com.google.api.server.spi.auth.EspAuthenticator;
 import com.google.api.server.spi.auth.common.User;
 import com.google.api.server.spi.config.AnnotationBoolean;
@@ -10,6 +11,16 @@ import com.google.api.server.spi.config.ApiNamespace;
 import com.google.api.server.spi.config.Named;
 import com.google.api.server.spi.config.Nullable;
 import com.google.api.server.spi.response.UnauthorizedException;
+import com.google.common.io.CharStreams;
+
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.Path;
+import java.io.InputStream;
+import java.nio.file.StandardOpenOption;
 
 // [START blog_api_annotation]
 @Api(
@@ -33,7 +44,38 @@ import com.google.api.server.spi.response.UnauthorizedException;
 // [END blog_api_annotation]
 public class Blog
 {
-    private static String blog = "this is an initial blog entry";
+    private static Path blogFile = Paths.get("blog.txt");
+    private static String blog = "";
+
+
+    private void RestoreBlog()
+    {
+        try {
+            InputStream in = Files.newInputStream(blogFile,StandardOpenOption.CREATE);
+            blog = CharStreams.toString(new InputStreamReader(in, Charsets.UTF_8));
+            in.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+    private void SaveBlog()
+    {
+        try {
+            OutputStream out = Files.newOutputStream(blogFile,StandardOpenOption.WRITE,StandardOpenOption.TRUNCATE_EXISTING);
+            out.write(blog.getBytes());
+            out.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public Blog()
+    {
+        RestoreBlog();
+    }
 
     // [START getBlog_method]
     @ApiMethod(
@@ -57,6 +99,8 @@ public class Blog
     public void editBlog(BlogEntry blogEntry) 
 	{
 		blog += '\n'+blogEntry.getBlogEntry();
+
+		SaveBlog();
    	}
     // [END editBlog_method]
 	
@@ -68,6 +112,8 @@ public class Blog
     public void newBlog(BlogEntry blogEntry) 
 	{
 		blog = blogEntry.getBlogEntry();
+
+		SaveBlog();
    	}
     // [END newBlog_method]
 	
@@ -79,6 +125,8 @@ public class Blog
     public void deleteBlog() 
 	{
 		blog = "";
+
+		SaveBlog();
    	}
     // [END deleteBlog_method]
 }
