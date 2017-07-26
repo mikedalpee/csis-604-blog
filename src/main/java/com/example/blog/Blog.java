@@ -12,14 +12,19 @@ import com.google.api.server.spi.config.Named;
 import com.google.api.server.spi.config.Nullable;
 import com.google.api.server.spi.response.UnauthorizedException;
 import com.google.common.io.CharStreams;
+import com.google.appengine.tools.cloudstorage.GcsFileOptions;
+import com.google.appengine.tools.cloudstorage.GcsFilename;
+import com.google.appengine.tools.cloudstorage.GcsInputChannel;
+import com.google.appengine.tools.cloudstorage.GcsOutputChannel;
+import com.google.appengine.tools.cloudstorage.GcsService;
+import com.google.appengine.tools.cloudstorage.GcsServiceFactory;
+import com.google.appengine.tools.cloudstorage.RetryParams;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
+import java.nio.channels.Channels;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.Path;
-import java.io.InputStream;
 import java.nio.file.StandardOpenOption;
 
 // [START blog_api_annotation]
@@ -44,17 +49,41 @@ import java.nio.file.StandardOpenOption;
 // [END blog_api_annotation]
 public class Blog
 {
-    private static Path blogFile = Paths.get("blog.txt");
+    private static String blogBucketName="csis-604-blog";
+    private static String blogObjectName="blog";
     private static String blog = "";
 
+    private final GcsService gcsService = GcsServiceFactory.createGcsService(new RetryParams.Builder()
+            .initialRetryDelayMillis(10)
+            .retryMaxAttempts(10)
+            .totalRetryPeriodMillis(15000)
+            .build());
 
+    /**Used below to determine the size of chucks to read in. Should be > 1kb and < 10MB */
+    private static final int BUFFER_SIZE = 2 * 1024 * 1024;
+
+    private void copy(InputStream input, OutputStream output) throws IOException {
+        try {
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int bytesRead = input.read(buffer);
+            while (bytesRead != -1) {
+                output.write(buffer, 0, bytesRead);
+                bytesRead = input.read(buffer);
+            }
+        } finally {
+            input.close();
+            output.close();
+        }
+    }
     private void RestoreBlog()
     {
         try {
-            InputStream in = Files.newInputStream(blogFile,StandardOpenOption.CREATE);
-            blog = CharStreams.toString(new InputStreamReader(in, Charsets.UTF_8));
-            in.close();
-
+            GcsFileOptions instance = GcsFileOptions.getDefaultInstance();
+            GcsFilename fileName = new GcsFilename(blogBucketName,blogObjectName);
+            GcsInputChannel readChannel = gcsService.openPrefetchingReadChannel(fileName, 0, BUFFER_SIZE);
+            ByteArrayOutputStream blogStream = new ByteArrayOutputStream();
+            copy(Channels.newInputStream(readChannel), blogStream);
+            blog = blogStream.toString();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -63,9 +92,12 @@ public class Blog
     private void SaveBlog()
     {
         try {
-            OutputStream out = Files.newOutputStream(blogFile,StandardOpenOption.WRITE,StandardOpenOption.TRUNCATE_EXISTING);
-            out.write(blog.getBytes());
-            out.close();
+            GcsFileOptions instance = GcsFileOptions.getDefaultInstance();
+            GcsFilename fileName = new GcsFilename(blogBucketName,blogObjectName);
+            GcsOutputChannel outputChannel;
+            outputChannel = gcsService.createOrReplace(fileName, instance);
+            InputStream blogStream = new ByteArrayInputStream(blog.getBytes());
+            copy(blogStream, Channels.newOutputStream(outputChannel));
         } catch (IOException e) {
             e.printStackTrace();
         }
