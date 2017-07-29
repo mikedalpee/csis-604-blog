@@ -39,7 +39,7 @@ To deploy the project:
 
 0. Wait for the upload to finish.
 
-### Using `curl` to sent interact with the blog
+### Using `curl` to interact with the blog
 
 After you deploy the API and its configuration file, you can send requests
 to the API.
